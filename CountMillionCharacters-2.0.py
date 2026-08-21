@@ -4,14 +4,14 @@ A txt file -- You will be asked for an input file. Simply input the name
 of the txt file in which you have the desired text.
 """
 
-import pprint
 import collections
+import pprint
 
 
 def main():
-    file_input = input('File Name: ')
+    file_input = input("File Name: ")
     try:
-        with open(file_input, 'r') as info:
+        with open(file_input, "r") as info:
             count = collections.Counter(info.read().upper())
     except FileNotFoundError:
         print("Please enter a valid file name.")

@@ -1,31 +1,32 @@
 # only god knows  whats happening in the code
 # if I forget the code structure
 # please pray to god for help
-import socket
-import socks
-import requests
-import urllib3
-import random
-import sys
-import pymongo
-import ujson
-import bs4
-import re
 import asyncio
-import time
 import multiprocessing
 import os
+import random
+import re
+import socket
+import sys
+import time
+
+import bs4
+import pymongo
+import requests
+import socks
+import ujson
+import urllib3
 
 try:
     import instagram_monitering.con_file as config
-except:
+except Exception as e:
+    print(e)
     import con_file as config
 
 
 class PorxyApplyingDecorator(object):
-
     def __init__(self):
-        filename = os.getcwd()+"/"+"ipList.txt"
+        filename = os.getcwd() + "/" + "ipList.txt"
         with open(filename, "r") as f:
             ipdata = f.read()
         self._IP = random.choice(ipdata.split(","))
@@ -33,16 +34,20 @@ class PorxyApplyingDecorator(object):
     def __call__(self, function_to_call_for_appling_proxy):
         SOCKS5_PROXY_HOST = self._IP
         # default_socket = socket.socket
-        socks.set_default_proxy(socks.SOCKS5,
-                                SOCKS5_PROXY_HOST,
-                                config.SOCKS5_PROXY_PORT ,
-                                True ,
-                                config.auth ,
-                                config.passcode)
+        socks.set_default_proxy(
+            socks.SOCKS5,
+            SOCKS5_PROXY_HOST,
+            config.SOCKS5_PROXY_PORT,
+            True,
+            config.auth,
+            config.passcode,
+        )
         socket.socket = socks.socksocket
+
         def wrapper_function(url):
             # this is used for applyting socks5 proxy over the request
             return function_to_call_for_appling_proxy(url)
+
         socks.set_default_proxy()
         return wrapper_function
 
@@ -50,13 +55,13 @@ class PorxyApplyingDecorator(object):
 async def dataprocess(htmldata):
     bs4obj = bs4.BeautifulSoup(htmldata, "html.parser")
     scriptsdata = bs4obj.findAll("script", {"type": "text/javascript"})
-    datatext = ''
+    datatext = ""
     for i in scriptsdata:
         datatext = i.text
         if "window._sharedData =" in datatext:
             break
     datajson = re.findall("{(.*)}", datatext)
-    datajson = '{'+datajson[0]+'}'
+    datajson = "{" + datajson[0] + "}"
     datadict = ujson.loads(datajson)
     maindict = {}
     datadict = datadict["entry_data"]["PostPage"][0]["graphql"]["shortcode_media"]
@@ -64,24 +69,31 @@ async def dataprocess(htmldata):
     for i in tofind:
         try:
             maindict[i] = datadict[i]
-        except:
+        except Exception as e:
+            print(e)
             pass
     return maindict
 
+
 async def datapullpost(future, url):
     while True:
+
         @PorxyApplyingDecorator()
         async def request_pull(url):
             data = None
             print(url)
             urllib3.disable_warnings()
-            user_agent = {'User-agent': 'Mozilla/17.0'}
+            user_agent = {"User-agent": "Mozilla/17.0"}
             try:
-                data = requests.get(url=url, headers=user_agent, timeout=10, verify=False).text
-            except:
+                data = requests.get(
+                    url=url, headers=user_agent, timeout=10, verify=False
+                ).text
+            except Exception as e:
+                print(e)
                 data = None
             finally:
                 return data
+
         data = await request_pull(url)
         if data != None:
             break
@@ -89,19 +101,19 @@ async def datapullpost(future, url):
     # here processing of data has to occur
     future.set_result(data)
 
-class MoniteringClass():
 
+class MoniteringClass:
     def __init__(self, user, tags, type, productId):
-
         try:
             self.mon = pymongo.MongoClient(host=config.host, port=config.mongoPort)
-            db = self.mon[productId+":"+user+":insta"]
+            db = self.mon[productId + ":" + user + ":insta"]
             self._collection = db[tags]
             if type == "hashtags":
-                self._url = "https://www.instagram.com/explore/tags/"+tags+"/?__a=1"
+                self._url = "https://www.instagram.com/explore/tags/" + tags + "/?__a=1"
             if type == "profile":
-                self._url = "https://www.instagram.com/"+tags+"/?__a=1"
-        except:
+                self._url = "https://www.instagram.com/" + tags + "/?__a=1"
+        except Exception as err:
+            print(f"exception {err}")
             print("error::MointeringClass.__init__>>", sys.exc_info()[1])
 
     def _dataProcessing(self, data):
@@ -110,14 +122,14 @@ class MoniteringClass():
         try:
             if not isinstance(data, dict):
                 raise Exception
-            media_post = data['tag']["media"]["nodes"]
-            top_post = data['tag']["top_posts"]["nodes"]
+            media_post = data["tag"]["media"]["nodes"]
+            top_post = data["tag"]["top_posts"]["nodes"]
             print("media post ::", len(media_post))
             print("top_post::", len(top_post))
             futures = []
             for i in media_post:
                 tempdict = {}
-                tempdict["url"] = "https://www.instagram.com/p/"+i["code"]+"/"
+                tempdict["url"] = "https://www.instagram.com/p/" + i["code"] + "/"
                 tempdict["code"] = i["code"]
                 userdata.append(tempdict)
             for i in top_post:
@@ -132,7 +144,8 @@ class MoniteringClass():
             loop.run_until_complete(asyncio.wait(futures))
             for i in userdata:
                 i["data"] = i["future"].result()
-        except:
+        except Exception as err:
+            print(f"Exception ! : {err}")
             print("error::Monitering.dataProcessing>>", sys.exc_info()[1])
         finally:
             # loop.close()
@@ -141,17 +154,17 @@ class MoniteringClass():
             print("top post::", len(top_post))
             return userdata, media_post, top_post
 
-
     def _insertFunction(self, record):
         try:
-            records = self._collection.find({"id":record["id"]})
+            records = self._collection.find({"id": record["id"]})
             if records.count() == 0:
                 # record["timestamp"] = time.time()
                 self._collection.insert(record)
-        except:
+        except Exception as err:
+            print(f"Execption : {err}")
             print("error::Monitering.insertFunction>>", sys.exc_info()[1])
 
-    def _lastProcess(self,userdata, media_post, top_post):
+    def _lastProcess(self, userdata, media_post, top_post):
         mainlist = []
         try:
             for i in userdata:
@@ -161,8 +174,9 @@ class MoniteringClass():
                         tofind = ["owner", "location"]
                         for z in tofind:
                             try:
-                                tempdict[z+"data"] = i["data"][z]
-                            except:
+                                tempdict[z + "data"] = i["data"][z]
+                            except Exception as e:
+                                print(f"exception : {e}")
                                 pass
                         mainlist.append(tempdict)
                         self._insertFunction(tempdict.copy())
@@ -172,37 +186,47 @@ class MoniteringClass():
                         tofind = ["owner", "location"]
                         for z in tofind:
                             try:
-                                tempdict[z+"data"] = i["data"][z]
-                            except:
+                                tempdict[z + "data"] = i["data"][z]
+                            except Exception as err:
+                                print(f"Exception :{err}")
                                 pass
                         mainlist.append(tempdict)
                         self._insertFunction(tempdict.copy())
-        except:
+        except Exception as err:
+            print(f"Exception : {err}")
             print("error::lastProcess>>", sys.exc_info()[1])
 
     def request_data_from_instagram(self):
         try:
             while True:
+
                 @PorxyApplyingDecorator()
                 def reqest_pull(url):
                     print(url)
                     data = None
                     urllib3.disable_warnings()
-                    user_agent = {'User-agent': 'Mozilla/17.0'}
+                    user_agent = {"User-agent": "Mozilla/17.0"}
                     try:
-                        data = requests.get(url=url, headers=user_agent, timeout=24, verify=False).text
-                    except:
+                        data = requests.get(
+                            url=url, headers=user_agent, timeout=24, verify=False
+                        ).text
+                    except Exception as err:
+                        print(f"Exception : {err}")
                         data = None
                     finally:
                         return data
+
                 data = reqest_pull(self._url)
                 if data != None:
                     break
             datadict = ujson.loads(data)
             userdata, media_post, top_post = self._dataProcessing(datadict)
-            finallydata = (self._lastProcess(userdata = userdata, media_post= media_post, top_post=top_post))
+            finallydata = self._lastProcess(
+                userdata=userdata, media_post=media_post, top_post=top_post
+            )
             # print(ujson.dumps(finallydata))
-        except:
+        except Exception as e:
+            print(f"exception : {e}\n")
             print("error::Monitering.request_data_from_instagram>>", sys.exc_info()[1])
 
     def __del__(self):
@@ -213,13 +237,12 @@ def hashtags(user, tags, type, productId):
     try:
         temp = MoniteringClass(user=user, tags=tags, type=type, productId=productId)
         temp.request_data_from_instagram()
-    except:
+    except Exception as err:
+        print(f"exception : {err} \n")
         print("error::hashtags>>", sys.exc_info()[1])
 
 
-
 class theradPorcess(multiprocessing.Process):
-
     def __init__(self, user, tags, type, productId):
         try:
             multiprocessing.Process.__init__(self)
@@ -227,20 +250,21 @@ class theradPorcess(multiprocessing.Process):
             self.tags = tags
             self.type = type
             self.productId = productId
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("errorthreadPorcess:>>", sys.exc_info()[1])
 
     def run(self):
         try:
-            hashtags(user=self.user, tags=self.tags, type = self.type, productId=self.productId)
-        except:
+            hashtags(
+                user=self.user, tags=self.tags, type=self.type, productId=self.productId
+            )
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::run>>", sys.exc_info()[1])
 
 
-
-
-class InstaPorcessClass():
-
+class InstaPorcessClass:
     def _dbProcessReader(self, user, tags, productId):
         value = True
         mon = pymongo.MongoClient(host=config.host, port=config.mongoPort)
@@ -255,7 +279,8 @@ class InstaPorcessClass():
             if records == 0:
                 raise Exception
             value = True
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             value = False
             print("error::dbProcessReader:>>", sys.exc_info()[1])
         finally:
@@ -272,7 +297,8 @@ class InstaPorcessClass():
             temp["tags"] = tags
             temp["productId"] = productId
             collection.insert(temp)
-        except:
+        except Exception as err:
+            print(f"execption : {err}\n")
             print("error::processstart>>", sys.exc_info()[1])
         finally:
             mon.close()
@@ -290,7 +316,8 @@ class InstaPorcessClass():
                     break
                 time.sleep(300)
                 # therad.join()
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::startPoress::>>", sys.exc_info()[1])
 
     def deletProcess(self, user, tags, productId):
@@ -301,14 +328,16 @@ class InstaPorcessClass():
             temp = {}
             temp["user"] = user
             temp["tags"] = tags
-            temp["productId"] =productId
+            temp["productId"] = productId
             collection.delete_one(temp)
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::deletProcess:>>", sys.exc_info()[1])
         finally:
             mon.close()
             print("deleted - task", temp)
             return True
+
     def statusCheck(self, user, tags, productId):
         mon = pymongo.MongoClient(host=config.host, port=config.mongoPort)
         try:
@@ -323,30 +352,33 @@ class InstaPorcessClass():
                 result = False
             else:
                 result = True
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::dbProcessReader:>>", sys.exc_info()[1])
         finally:
             mon.close()
             return result
 
-class DBDataFetcher():
 
+class DBDataFetcher:
     def __init__(self, user, tags, type, productId):
         try:
             self.mon = pymongo.MongoClient(host=config.host, port=config.mongoPort)
-            db = self.mon[productId+":"+user+":insta"]
+            db = self.mon[productId + ":" + user + ":insta"]
             self._collection = db[tags]
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::DBDataFetcher.init>>", sys.exc_info()[1])
 
     def dbFetcher(self, limit=20):
         mainlist = []
         try:
-            records = self._collection.find().sort("id",-1).limit(limit)
+            records = self._collection.find().sort("id", -1).limit(limit)
             for i in records:
                 del i["_id"]
                 mainlist.append(i)
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::dbFetcher>>", sys.exc_info()[1])
         finally:
             return ujson.dumps(mainlist)
@@ -360,16 +392,23 @@ class DBDataFetcher():
                 raise Exception
             limit = int(limit)
             date = int(date)
-            if date!=0:
-                doc = self._collection.find({"date": {"$gt": date}}).sort("date", pymongo.ASCENDING).limit(limit)
+            if date != 0:
+                doc = (
+                    self._collection.find({"date": {"$gt": date}})
+                    .sort("date", pymongo.ASCENDING)
+                    .limit(limit)
+                )
             else:
-                doc = self._collection.find().sort("date", pymongo.ASCENDING).limit(limit)
+                doc = (
+                    self._collection.find().sort("date", pymongo.ASCENDING).limit(limit)
+                )
             for i in doc:
                 del i["_id"]
                 mainlist.append(i)
             postval["posts"] = mainlist
             postval["status"] = True
-        except:
+        except Exception as err:
+            print(f"exception : {err}\n")
             print("error::", sys.exc_info()[1])
             postval["status"] = False
         finally:
@@ -384,13 +423,18 @@ class DBDataFetcher():
                 raise Exception
             limit = int(limit)
             date = int(date)
-            doc = self._collection.find({"date": {"$lt": date}}).limit(limit).sort("date", pymongo.DESCENDING)
+            doc = (
+                self._collection.find({"date": {"$lt": date}})
+                .limit(limit)
+                .sort("date", pymongo.DESCENDING)
+            )
             for i in doc:
                 del i["_id"]
                 mainlist.append(i)
             postval["posts"] = mainlist[::-1]
             postval["status"] = True
-        except:
+        except Exception as err:
+            print(f"error : {err}\n")
             print("error::", sys.exc_info()[1])
             postval["status"] = False
         finally:
@@ -408,9 +452,10 @@ def main():
         productId = sys.argv[4]
         obj = InstaPorcessClass()
         obj.startprocess(user=user, tags=tags, type=type, productId=productId)
-    except:
+    except Exception as err:
+        print(f"exception : {err}")
         print("error::main>>", sys.exc_info()[1])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

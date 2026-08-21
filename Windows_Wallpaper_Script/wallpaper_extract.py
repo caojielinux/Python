@@ -1,23 +1,27 @@
 import os
 import shutil
 import time
+
 from PIL import Image
 
 
 class Wallpaper:
     # Set Environment Variables
-    username = os.environ['USERNAME']
-
+    username = os.environ["USERNAME"]
+    # An Amazing Code You Will Love To Have
     # All file urls
     file_urls = {
-        "wall_src": "C:\\Users\\" + username
-                    + "\\AppData\\Local\\Packages\\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\\"
-                    + "LocalState\\Assets\\",
+        "wall_src": "C:\\Users\\"
+        + username
+        + "\\AppData\\Local\\Packages\\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\\"
+        + "LocalState\\Assets\\",
         "wall_dst": os.path.dirname(os.path.abspath(__file__)) + "\\Wallpapers\\",
-        "wall_mobile": os.path.dirname(os.path.abspath(__file__)) + "\\Wallpapers\\mobile\\",
-        "wall_desktop": os.path.dirname(os.path.abspath(__file__)) + "\\Wallpapers\\desktop\\"
+        "wall_mobile": os.path.dirname(os.path.abspath(__file__))
+        + "\\Wallpapers\\mobile\\",
+        "wall_desktop": os.path.dirname(os.path.abspath(__file__))
+        + "\\Wallpapers\\desktop\\",
     }
-    msg = '''
+    msg = """
                 DDDDD      OOOOO    NN      N  EEEEEEE
                 D    D    O     O   N N     N  E
                 D     D   O     O   N  N    N  E
@@ -25,14 +29,14 @@ class Wallpaper:
                 D     D   O     O   N    N  N  E
                 D    D    O     O   N     N N  E
                 DDDDD      OOOOO    N      NN  EEEEEEE
-            '''
+            """
 
     # A method to showcase time effect
     @staticmethod
     def time_gap(string):
-        print(string, end='')
+        print(string, end="")
         time.sleep(1)
-        print(".", end='')
+        print(".", end="")
         time.sleep(1)
         print(".")
 
@@ -55,8 +59,10 @@ class Wallpaper:
             base_file, ext = os.path.splitext(filename)
             if ext == "":
                 if not os.path.isdir(w.file_urls["wall_dst"] + filename):
-                    os.rename(w.file_urls["wall_dst"] + filename,
-                              w.file_urls["wall_dst"] + filename + ".jpg")
+                    os.rename(
+                        w.file_urls["wall_dst"] + filename,
+                        w.file_urls["wall_dst"] + filename + ".jpg",
+                    )
 
     # Remove all files Not having Wallpaper Resolution
     @staticmethod
@@ -75,6 +81,7 @@ class Wallpaper:
                     os.remove(w.file_urls["wall_dst"] + filename)
                 else:
                     im.close()
+
     # Arrange the wallpapers into the corresponding folders
     @staticmethod
     def arr_desk_wallpapers():
@@ -88,12 +95,16 @@ class Wallpaper:
 
                     if list(im.size)[0] == 1920:
                         im.close()
-                        os.rename(w.file_urls["wall_dst"] + filename,
-                                  w.file_urls["wall_desktop"] + filename)
+                        os.rename(
+                            w.file_urls["wall_dst"] + filename,
+                            w.file_urls["wall_desktop"] + filename,
+                        )
                     elif list(im.size)[0] == 1080:
                         im.close()
-                        os.rename(w.file_urls["wall_dst"] + filename,
-                                  w.file_urls["wall_mobile"] + filename)
+                        os.rename(
+                            w.file_urls["wall_dst"] + filename,
+                            w.file_urls["wall_mobile"] + filename,
+                        )
                     else:
                         im.close()
                 except FileExistsError:
@@ -108,7 +119,7 @@ class Wallpaper:
         w.extract_wall()
         w.arr_desk_wallpapers()
         print(w.msg)
-        time.sleep(3)
+        time.sleep(2)
 
 
 wall = Wallpaper()
